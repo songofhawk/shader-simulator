@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <style>
+        section{
+            box-sizing:content-box;
+            display: flex;
+        }
+        div{
+            box-sizing:border-box;
+            display: flex;
+        }
+        #shader-container{
+            width: 800px;
+            height: 800px;
+            background-color: black;
+            border: 1px gray solid;
+            padding: 0;
+            margin: 0;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+
+<h1>shader 模拟器</h1>
+
+<section id="shader-container"></section>
+
+<script type="text/javascript">
+    const RESOLUTION = 20;
+    const ROWS = RESOLUTION;
+    const COLS = RESOLUTION;
+    const LINE_COLOR = [0.0, 1.0, 0.0];
+    const LINE_WIDTH = 0.1;
+    const frags = [];
+    const container = document.getElementById('shader-container');
+    const totalWidth = container.offsetWidth;
+    const totalHeight = container.offsetHeight;
+    const FRAG_WIDTH = totalWidth / ROWS;
+    const FRAG_HEIGHT = totalHeight / COLS;
+
+    function initContainer(){
+        for (let y=0;y<ROWS;y++){
+            frags.push([]);
+            for (let x=0;x<COLS;x++){
+                let node = createFragNode(x,y);
+                frags[y].push(node);
+                container.appendChild(node);
+            }
+        }
+    }
+
+    function createFragNode(x,y){
+        let node  = document.createElement('div');
+        let t = document.createTextNode(x+','+y);
+        //node.appendChild(t);
+        let style = node.style;
+        style.width = FRAG_WIDTH;
+        style.height = FRAG_HEIGHT;
+        style.border = '1px gray solid';
+        style.backgroundColor = 'white';
+        style.margin = '0px';
+        style.position = 'absolute';
+        style.width = ''+FRAG_WIDTH+'px';
+        style.height = ''+FRAG_HEIGHT+'px';
+
+
+        style.alignItems = 'center';
+        style.justifyContent = 'center';
+        style.fontFamily = 'arial';
+        let fontSize = Math.round(FRAG_HEIGHT/10);
+        style.fontSize = ''+( fontSize<5 ? 5: fontSize)+"px";
+
+        style.left = ''+x*FRAG_WIDTH+'px';
+        style.top = ''+(ROWS-y - 1)*FRAG_WIDTH+'px';
+
+        return node;
+    }
+
+
+    initContainer();
+
+    function shade(){
+        for (let y=0;y<ROWS;y++){
+            for (let x=0;x<COLS;x++){
+                let gl_FragColor = shader_main({
+                    gl_FragCoord:[x,y],
+                    u_resolution:RESOLUTION
+                });
+                let node = frags[y][x];
+                let color = floor(multiply(gl_FragColor, 255));
+                node.style.backgroundColor = 'rgba('+color[0]+','+color[1]+','+color[2]+','+color[3]+')';
+            }
+        }
+    }
+
+    function shader_main({gl_FragCoord, u_resolution}){
+        // vec2 st = gl_FragCoord.xy/u_resolution;
+        let st = devide(gl_FragCoord, u_resolution);
+
+        // float y = sqrt(st.x);
+        let x = st[0];  //以x轴坐标为函数x值
+        let y = Math.log((x+0.4)*2); //以开方结果为函数y值
+
+        // vec3 color = vec3(y);
+        let color = [y,y,y]; //以函数值为背景颜色值
+
+        // Plot a line
+        // float pct = plot(st,y);
+        let pct = plot(st, y); //以坐标值和函数值计算得到一个平滑百分比
+
+        // color = (1.0-pct)*color+pct*vec3(0.0,1.0,0.0);
+        color = plus( multiply(color, (1.0 - pct)), multiply(LINE_COLOR, pct));
+
+        // gl_FragColor = vec4(color,1.0);
+        let gl_FragColor = [color[0],color[1], color[2], 1.0];
+        return gl_FragColor;
+    }
+
+    function devide(vec, num){
+        let ret = [];
+        for (let i=0; i<vec.length; i++){
+            ret.push(parseFloat(vec[i])/num);
+        }
+        return ret;
+    }
+
+    function multiply(vec, num){
+        let ret = [];
+        for (let i=0; i<vec.length; i++){
+            ret.push(vec[i]*num);
+        }
+        return ret;
+    }
+
+    function plus(vec1, vec2){
+        let ret = [];
+        for (let i=0; i<vec1.length; i++){
+            ret.push(vec1[i] + vec2[i]);
+        }
+        return ret;
+    }
+
+    function floor(vec){
+        let ret = [];
+        for (let i=0; i<vec.length; i++){
+            ret.push(Math.floor(vec[i]));
+        }
+        return ret;
+    }
+
+    function plot(st, pct){
+        // return  smoothstep( pct-0.02, pct, st.y) -
+        //   smoothstep( pct, pct+0.02, st.y);
+        return  smoothstep( pct - LINE_WIDTH, pct, st[1]) -
+          smoothstep( pct, pct + LINE_WIDTH, st[1]);
+    }
+
+    function smoothstep(edge0, edge1, x){
+        if ( x<edge0) {
+            return 0;
+        }else if (x>edge1){
+            return 1;
+        }else{
+            let xf = parseFloat(x);
+            let a = (xf - edge0) / (edge1 - edge0);
+            return a*a*(3.0 - 2.0*a);
+        }
+    }
+
+    shade();
+</script>
+</body>
+</html>
